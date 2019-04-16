@@ -1,6 +1,8 @@
-relay_pin: 26
-set_point: 95
-delay_time: 10
+relay_pin: 26 # in BCM numbering
+set_point: 95 # in degrees C
+delay_time: 10 # in seconds
+plot_interval: 2 # in hours
+db_path: /home/pi/piggia/temps.db
 Kp: 0
 Ki: 0
 Kd: 0

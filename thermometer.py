@@ -5,8 +5,7 @@ import sys
 import subprocess
 import time
 import sqlite3
-
-DB_PATH = os.path.dirname(os.path.realpath(__file__)) + '/temps.db'
+import yaml
 
 class NoThermometerError(Exception):
     '''
@@ -123,9 +122,11 @@ def main():
     of time elapsed since the program started and the
     current temperature, separated by a comma.
     """
-    therm = Thermometer()
+    # load configuration file
+    config = yaml.safe_load(open(sys.argv[1], 'r'))
 
-    therm.log_to_sqlite_db(DB_PATH)
+    therm = Thermometer()
+    therm.log_to_sqlite_db(config['db_path'])
 
 if __name__ == "__main__":
     main()

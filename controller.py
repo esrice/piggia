@@ -14,15 +14,13 @@ def basic_thermostat(relay_pin, thermometer, set_point, delay_time):
         temp = thermometer.get_temperature()
         if temp < set_point:
             GPIO.output(relay_pin, GPIO.HIGH)
-            print('relay is ON', file=sys.stderr)
         else:
             GPIO.output(relay_pin, GPIO.LOW)
-            print('relay is OFF', file=sys.stderr)
         time.sleep(delay_time)
 
 def main():
     # load configuration file
-    config = yaml.safe_load(open(BASE_PATH + '/config.yaml', 'r'))
+    config = yaml.safe_load(open(sys.argv[1], 'r'))
 
     # set up GPIO
     GPIO.setmode(GPIO.BCM)
