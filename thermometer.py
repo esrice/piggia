@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import subprocess
 import time
+import sqlite3
+
+DB_PATH = os.path.dirname(os.path.realpath(__file__)) + '/temps.db'
 
 class NoThermometerError(Exception):
     '''
@@ -18,6 +22,22 @@ class Thermometer:
     """
 
     BASE_DIR = '/sys/bus/w1/devices/'
+    CREATE_TEMPERATURE_TABLE = """
+        CREATE TABLE IF NOT EXISTS temperature (
+            timestamp DATETIME,
+            temp NUMERIC);
+        DROP TRIGGER IF EXISTS rowcount;
+        CREATE TRIGGER IF NOT EXISTS rowcount
+        BEFORE INSERT ON temperature
+        WHEN (SELECT COUNT(*) FROM temperature) >= {}
+        BEGIN
+            DELETE FROM temperature WHERE timestamp NOT IN (
+                SELECT timestamp FROM temperature
+                ORDER BY timestamp DESC
+                LIMIT {}
+            );
+        END
+    """
 
     @classmethod
     def get_thermometer_ids(cls):
@@ -66,6 +86,36 @@ class Thermometer:
 
         return int(lines[1].strip().split('=')[1])/(10**3)
 
+    def log_to_sqlite_db(self, db_file, time_gap=1, max_entries=10**6):
+        """
+        Log temperatures to an sqlite database until
+        interrupted.
+
+        Arguments:
+        * db_file: sqlite database file to write to
+        * time_gap: amount of time to sleep between
+            thermometer reads, in seconds
+        * max_entries: maximum number of entries to put
+            in table --- if the table size exceeds this
+            number, the oldest entries start getting
+            dropped.
+        """
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+        cursor.executescript(self.CREATE_TEMPERATURE_TABLE.format(
+            max_entries, max_entries))
+
+        while True:
+            try:
+                cursor.execute("INSERT INTO temperature values("
+                        "datetime('now'), {})".format(self.get_temperature()))
+                conn.commit()
+                time.sleep(time_gap)
+            except KeyboardInterrupt:
+                conn.commit()
+                conn.close()
+                break
+
 def main():
     """
     A little function to test the Thermometer class. Just
@@ -75,16 +125,7 @@ def main():
     """
     therm = Thermometer()
 
-    start_time = time.time()
-
-    while True:
-        try:
-            elapsed_time = time.time() - start_time
-            temperature = therm.get_temperature()
-            print('{},{}'.format(elapsed_time, temperature))
-            time.sleep(5)
-        except KeyboardInterrupt:
-            break
+    therm.log_to_sqlite_db(DB_PATH)
 
 if __name__ == "__main__":
     main()
