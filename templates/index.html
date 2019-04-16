@@ -6,6 +6,13 @@
     <body>
         <h1>Current temperature</h1>
         <p>Current temperature is {{temp}} at {{time}}.</p>
-        <img src="/temps.png" alt="temperature plot" />
+        <img src="{{ plot }}" alt="temperature plot" />
+
+        <form method = post>
+            <fieldset>
+                {{ form.plot_interval.label }} {{ form.plot_interval }} <br />
+                {{ form.submit }}
+            </fieldset>
+        </form>
     </body>
 </html>

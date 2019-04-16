@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
-from flask import Flask, Response, render_template
+from flask import Flask, Response, render_template, request
+from flask_wtf import FlaskForm
+from wtforms import DecimalField, SubmitField
+
 import sqlite3
 import io
 import os
@@ -12,15 +15,21 @@ import sys
 import yaml
 
 app = Flask(__name__)
+app.secret_key = 'development key'
 SQL_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
-DB_PATH = os.path.dirname(os.path.realpath(__file__)) + '/temps.db'
+
+class PlotForm(FlaskForm):
+    plot_interval = DecimalField('Time to plot (hours)')
+    submit = SubmitField('Replot')
 
 def convert_to_local_time(date_time):
     return date_time.replace(tzinfo=dt.timezone.utc).astimezone(tz=None)
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    conn = sqlite3.connect(DB_PATH)
+    config = yaml.safe_load(open(sys.argv[1], 'r'))
+
+    conn = sqlite3.connect(config['db_path'])
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM temperature ORDER BY timestamp DESC LIMIT 1")
@@ -29,7 +38,16 @@ def index():
 
     time = convert_to_local_time(dt.datetime.strptime(time, SQL_TIME_FORMAT))
 
-    return render_template('index.html', temp=temp, time=time)
+    form = PlotForm()
+
+    if request.method == 'POST':
+        plot_interval = request.form['plot_interval']
+    else:
+        plot_interval = config['plot_interval']
+    plot = 'temps.png?plot_interval={}'.format(plot_interval)
+
+    return render_template('index.html', temp=temp, time=time, form=form,
+            plot=plot)
 
 @app.route('/temps.png')
 def temps_png():
@@ -39,9 +57,10 @@ def temps_png():
     conn = sqlite3.connect(config['db_path'])
     cursor = conn.cursor()
 
+    plot_interval = request.args.get('plot_interval') or config['plot_interval']
     cursor.execute("SELECT * FROM temperature "
             "WHERE timestamp > datetime('now', '-{} hours')".format(
-                config['plot_interval']))
+                plot_interval))
     pairs = cursor.fetchall()
 
     time_lambda = lambda p: dt.datetime.strptime(p[0], SQL_TIME_FORMAT)

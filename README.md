@@ -24,7 +24,7 @@ specify the pin with the broadcom numbering scheme.
 First, install the requirements:
 ```
 sudo apt-get install sqlite3 python3-matplotlib python3-pip git
-pip3 install Flask
+pip3 install flask flask-wtf pyyaml
 ```
 
 Then, download the code:
@@ -32,12 +32,15 @@ Then, download the code:
 git clone https://github.com/esrice/piggia.git
 ```
 
+Next, edit `config.yaml` to tell it where to store the database, what pin
+to use for the relay, how long to wait between temperature measurements, etc.
+
 Finally, add the following lines to `/etc/rc.local` to make the temperature
 logger and web server start running automatically when the Raspberry Pi starts
 up:
 ```
-sudo python3 /path/to/thermometer.py &
-sudo python3 /path/to/app.py &
+python3 /path/to/thermometer.py /path/to/config.yaml &
+python3 /path/to/app.py /path/to/config.yaml &
 ```
 You can run these in a terminal too, of course. You should now have a little
 webpage showing the current temperature and a plot of past temperatures at
