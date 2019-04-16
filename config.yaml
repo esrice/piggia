@@ -1,0 +1,6 @@
+relay_pin: 26
+set_point: 95
+delay_time: 10
+Kp: 0
+Ki: 0
+Kd: 0
