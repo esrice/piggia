@@ -15,6 +15,9 @@ app = Flask(__name__)
 SQL_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 DB_PATH = os.path.dirname(os.path.realpath(__file__)) + '/temps.db'
 
+def convert_to_local_time(date_time):
+    return date_time.replace(tzinfo=dt.timezone.utc).astimezone(tz=None)
+
 @app.route('/')
 def index():
     conn = sqlite3.connect(DB_PATH)
@@ -23,6 +26,8 @@ def index():
     cursor.execute("SELECT * FROM temperature ORDER BY timestamp DESC LIMIT 1")
     time, temp = cursor.fetchall()[0]
     conn.close()
+
+    time = convert_to_local_time(dt.datetime.strptime(time, SQL_TIME_FORMAT))
 
     return render_template('index.html', temp=temp, time=time)
 
@@ -40,8 +45,7 @@ def temps_png():
     pairs = cursor.fetchall()
 
     time_lambda = lambda p: dt.datetime.strptime(p[0], SQL_TIME_FORMAT)
-    tz_lambda = lambda t: t.replace(tzinfo=dt.timezone.utc).astimezone(tz=None)
-    times = list(map(tz_lambda, map(time_lambda, pairs)))
+    times = list(map(convert_to_local_time, map(time_lambda, pairs)))
     temps = list(map(lambda p: float(p[1]), pairs))
 
     img = io.BytesIO()
