@@ -33,7 +33,7 @@ def index():
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM temperature ORDER BY timestamp DESC LIMIT 1")
-    time, temp = cursor.fetchall()[0]
+    time, temp = cursor.fetchall()[0][:2]
     conn.close()
 
     time = convert_to_local_time(dt.datetime.strptime(time, SQL_TIME_FORMAT))
@@ -48,6 +48,44 @@ def index():
 
     return render_template('index.html', temp=temp, time=time, form=form,
             plot=plot)
+
+def make_plot(times, temps, errors, integrals, derivatives, outputs, config):
+    img = io.BytesIO()
+
+    fig, axs = plt.subplots(5, 1, sharex=False, figsize=(8, 30))
+
+    #plt.xticks(rotation=90)
+    axs[0].plot(times, temps)
+    axs[0].axhline(y=90, color='grey', linestyle=':')
+    axs[0].axhline(y=config['set_point'], color='grey', linestyle=':')
+    axs[0].axhline(y=96, color='grey', linestyle=':')
+    axs[0].set_ylabel('Temperature (deg C)')
+    axs[0].grid()
+
+    axs[1].plot(times, errors)
+    axs[1].axhline(y=0, color='grey', linestyle=':')
+    axs[1].set_ylabel('Error (deg C)')
+    axs[1].grid()
+
+    axs[2].plot(times, integrals)
+    axs[2].axhline(y=0, color='grey', linestyle=':')
+    axs[2].set_ylabel('Integral(Error dt)')
+    axs[2].grid()
+
+    axs[3].plot(times, derivatives)
+    axs[3].axhline(y=0, color='grey', linestyle=':')
+    axs[3].set_ylabel('dE/dt')
+    axs[3].grid()
+
+    axs[4].plot(times, outputs)
+    axs[4].set_ylabel('Boiler output (%)')
+    axs[4].grid()
+
+    plt.savefig(img, format='png', bbox_inches='tight')
+    img.seek(0)
+    plt.close()
+
+    return img
 
 @app.route('/temps.png')
 def temps_png():
@@ -66,18 +104,14 @@ def temps_png():
     time_lambda = lambda p: dt.datetime.strptime(p[0], SQL_TIME_FORMAT)
     times = list(map(convert_to_local_time, map(time_lambda, pairs)))
     temps = list(map(lambda p: float(p[1]), pairs))
+    errors = list(map(lambda p: float(p[2]), pairs))
+    integrals = list(map(lambda p: float(p[3]), pairs))
+    derivatives = list(map(lambda p: float(p[4]), pairs))
+    outputs = list(map(lambda p: float(p[5]), pairs))
 
-    img = io.BytesIO()
-    plt.xticks(rotation=90)
-    plt.plot(times, temps)
-    plt.xlabel('Time')
-    plt.ylabel('Temperature (deg C)')
-    plt.axhline(y=90, color='grey', linestyle=':')
-    plt.axhline(y=93, color='grey', linestyle=':')
-    plt.axhline(y=96, color='grey', linestyle=':')
-    plt.savefig(img, format='png')
-    img.seek(0)
-    plt.close()
+    img = make_plot(times, temps, errors, integrals, derivatives,
+            outputs, config)
+
     return Response(img.getvalue(), mimetype='image/png')
 
 if __name__ == '__main__':
