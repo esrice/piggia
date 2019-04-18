@@ -5,17 +5,122 @@ import yaml
 import time
 import sys
 import os
+import sqlite3
 from thermometer import Thermometer
 
-BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+CREATE_TEMPERATURE_TABLE = """
+    CREATE TABLE IF NOT EXISTS temperature (
+        timestamp DATETIME,
+        temp NUMERIC,
+        proportional NUMERIC,
+        integral NUMERIC,
+        derivative NUMERIC,
+        duty_cycle NUMERIC);
+    DROP TRIGGER IF EXISTS rowcount;
+    CREATE TRIGGER IF NOT EXISTS rowcount
+    BEFORE INSERT ON temperature
+    WHEN (SELECT COUNT(*) FROM temperature) >= {}
+    BEGIN
+        DELETE FROM temperature WHERE timestamp NOT IN (
+            SELECT timestamp FROM temperature
+            ORDER BY timestamp DESC
+            LIMIT {}
+        );
+    END
+"""
 
-def basic_thermostat(relay_pin, thermometer, set_point, delay_time):
+def basic_thermostat(relay_pin, thermometer, set_point, delay_time,
+        db_connection, db_cursor):
+    """
+    Implements a basic thermostat --- if the current
+    temperature is below the set point, it turns the boiler
+    on; if the temperature is above the set point, it turns
+    the boiler off.
+
+    Arguments:
+    * relay_pin: GPIO pin controlling the relay, in BCM
+        numbering
+    * thermometer: a Thermometer instance
+    * set_point: the temperature to aim for, in deg C
+    * delay_time: time between readings, in seconds
+    """
+    pwm = GPIO.PWM(relay_pin, 1)
+    pwm.start(0)
     while True:
         temp = thermometer.get_temperature()
         if temp < set_point:
-            GPIO.output(relay_pin, GPIO.HIGH)
+            output = 70
         else:
-            GPIO.output(relay_pin, GPIO.LOW)
+            output = 0
+        pwm.ChangeDutyCycle(output)
+        # log the temperature, P/I/D terms, and output
+        db_cursor.execute("INSERT INTO temperature values(datetime('now'),"
+                "{}, {}, {}, {}, {})".format(
+                    temp, set_point - temp, 0, 0, output))
+        db_connection.commit()
+        time.sleep(delay_time)
+
+def pid(relay_pin, thermometer, set_point, K_p, K_i, K_d, db_connection,
+        db_cursor, delay_time=1, frequency=1):
+    """
+    Implements a proportional-integral-derivative
+    controller, which intelligently modifies the
+    pulse width of the boiler to keep the temperature
+    from swinging too much.
+
+    Arguments:
+    * relay_pin: the GPIO pin controlling the relay, in
+        BCM numbering
+    * thermometer: a Thermometer instance
+    * set_point: the temperature to aim for, in deg C
+    * K_p, K_i, K_d: the PID controller constants for the
+        proportional, integral, and derivative terms,
+        respectively.
+    * db_connection: sqlite3 Connection
+    * db_cursor: sqlite3 Cursor
+    * delay_time: time between readings, in seconds
+    * frequency: frequency of PWM, in Hz
+    """
+
+    pwm = GPIO.PWM(relay_pin, frequency)
+    pwm.start(0)
+
+    # this constant avoids integer windup
+    if K_i != 0:
+        max_integral = 100 / K_i
+    else: max_integral = 10000
+
+    previous_integral = 0.0
+    previous_error = 0
+    previous_time = time.time()
+    while True:
+        current_temperature = thermometer.get_temperature()
+        current_time = time.time()
+
+        # calculate the proportional, integral, and derivative terms
+        error = set_point - current_temperature
+        delta_t = current_time - previous_time
+        integral = previous_integral + 0.5 * (error + previous_error) * delta_t
+        integral = min(integral, max_integral)
+        derivative = (error - previous_error) / delta_t
+
+        # calculate the output and set boiler
+        new_duty_cycle = K_p * error + K_i * integral + K_p * derivative
+        # confine duty cycle in range [0,100]
+        new_duty_cycle = max(0, min(new_duty_cycle, 100))
+        pwm.ChangeDutyCycle(new_duty_cycle)
+
+        # log the temperature, P/I/D terms, and output
+        db_cursor.execute("INSERT INTO temperature values(datetime('now'),"
+                "{}, {}, {}, {}, {})".format(thermometer.get_temperature(),
+                    error, integral, derivative, new_duty_cycle))
+        db_connection.commit()
+
+        # keep track of current terms for next cycle through loop
+        previous_integral = integral
+        previous_error = error
+        previous_time = current_time
+
         time.sleep(delay_time)
 
 def main():
@@ -26,12 +131,23 @@ def main():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(config['relay_pin'], GPIO.OUT)
 
+    # set up database
+    connection = sqlite3.connect(config['db_path'])
+    cursor = connection.cursor()
+    cursor.executescript(CREATE_TEMPERATURE_TABLE.format(
+        config['max_entries'], config['max_entries']))
+
+    # set up thermometer
     thermometer = Thermometer()
 
     try:
-        basic_thermostat(config['relay_pin'], thermometer, config['set_point'],
-                config['delay_time'])
+#        basic_thermostat(config['relay_pin'], thermometer, config['set_point'],
+#            1, connection, cursor)
+        pid(config['relay_pin'], thermometer, config['set_point'],
+                config['K_p'], config['K_i'], config['K_d'], connection, cursor)
     except KeyboardInterrupt:
+        connection.commit()
+        connection.close()
         GPIO.cleanup()
 
 if __name__ == '__main__':
