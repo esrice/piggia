@@ -17,6 +17,7 @@ import yaml
 app = Flask(__name__)
 app.secret_key = 'development key'
 SQL_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+CONFIG_FILE = '/home/pi/piggia/config.yaml'
 
 class PlotForm(FlaskForm):
     plot_interval = DecimalField('Time to plot (hours)')
@@ -27,7 +28,7 @@ def convert_to_local_time(date_time):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    config = yaml.safe_load(open(sys.argv[1], 'r'))
+    config = yaml.safe_load(open(CONFIG_FILE, 'r'))
 
     conn = sqlite3.connect(config['db_path'])
     cursor = conn.cursor()
@@ -90,7 +91,7 @@ def make_plot(times, temps, errors, integrals, derivatives, outputs, config):
 @app.route('/temps.png')
 def temps_png():
     # load configuration file
-    config = yaml.safe_load(open(sys.argv[1], 'r'))
+    config = yaml.safe_load(open(CONFIG_FILE, 'r'))
 
     conn = sqlite3.connect(config['db_path'])
     cursor = conn.cursor()
