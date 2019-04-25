@@ -1,9 +1,18 @@
 relay_pin: 14 # in BCM numbering
-set_point: 95 # in degrees C
-delay_time: 5 # in seconds
+set_point: 100 # in degrees C
+delay_time: 0 # in seconds
 plot_interval: 2 # in hours
 db_path: /home/pi/piggia/temps.db
 max_entries: 10000 # max entries in DB
-K_p: 3
-K_i: 0.02
+
+# PID controller gains
+K_p: 4
+K_i: 0.015
 K_d: 200
+
+# maximum integral value to prevent windup
+max_i: 2500
+
+# integral cannot accumulate if absolute value of error is
+# greater than this term, in degrees C
+max_error_accumulation: 10

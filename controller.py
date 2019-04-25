@@ -61,7 +61,8 @@ def basic_thermostat(relay_pin, thermometer, set_point, delay_time,
         time.sleep(delay_time)
 
 def pid(relay_pin, thermometer, set_point, K_p, K_i, K_d, db_connection,
-        db_cursor, delay_time=1, frequency=1):
+        db_cursor, max_integral, max_error_accumulation=5,
+        delay_time=1, frequency=1):
     """
     Implements a proportional-integral-derivative
     controller, which intelligently modifies the
@@ -78,17 +79,17 @@ def pid(relay_pin, thermometer, set_point, K_p, K_i, K_d, db_connection,
         respectively.
     * db_connection: sqlite3 Connection
     * db_cursor: sqlite3 Cursor
+    * max_integral: maximum value integral term is allowed
+      to reach, to prevent integral windup
+    * max_error_accumulation: maximum abs(error), in
+      degrees C, under which integral term is allowed to
+      accumulate
     * delay_time: time between readings, in seconds
     * frequency: frequency of PWM, in Hz
     """
 
     pwm = GPIO.PWM(relay_pin, frequency)
     pwm.start(0)
-
-    # this constant avoids integer windup
-    if K_i != 0:
-        max_integral = 100 / K_i
-    else: max_integral = 10000
 
     previous_integral = 0.0
     previous_error = 0
@@ -100,9 +101,15 @@ def pid(relay_pin, thermometer, set_point, K_p, K_i, K_d, db_connection,
         # calculate the proportional, integral, and derivative terms
         error = set_point - current_temperature
         delta_t = current_time - previous_time
-        integral = previous_integral + 0.5 * (error + previous_error) * delta_t
-        integral = min(integral, max_integral)
         derivative = (error - previous_error) / delta_t
+
+        integral = previous_integral + 0.5 * (error + previous_error) * delta_t
+        if integral > max_integral:
+            integral = 0
+        if abs(error) > max_error_accumulation:
+            integral = previous_integral
+        if current_temperature < 80:
+            integral = 0
 
         # calculate the output and set boiler
         new_duty_cycle = K_p * error + K_i * integral + K_p * derivative
@@ -144,11 +151,12 @@ def main():
 #        basic_thermostat(config['relay_pin'], thermometer, config['set_point'],
 #            1, connection, cursor)
         pid(config['relay_pin'], thermometer, config['set_point'],
-                config['K_p'], config['K_i'], config['K_d'], connection, cursor)
+                config['K_p'], config['K_i'], config['K_d'], connection, cursor,
+                config['max_i'], config['max_error_accumulation'],
+                config['delay_time'])
     except KeyboardInterrupt:
         connection.commit()
         connection.close()
-        GPIO.cleanup()
 
 if __name__ == '__main__':
     try: main()
