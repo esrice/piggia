@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, render_template, request, jsonify
 from flask_wtf import FlaskForm
 from wtforms import DecimalField, SubmitField
 
@@ -49,6 +49,23 @@ def index():
 
     return render_template('index.html', temp=temp, time=time, form=form,
             plot=plot)
+
+@app.route('/smoothie')
+def smoothie():
+    return render_template('smoothie_test.html')
+
+@app.route('/status')
+def status():
+    config = yaml.safe_load(open(CONFIG_FILE, 'r'))
+    conn = sqlite3.connect(config['db_path'])
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM temperature ORDER BY timestamp DESC LIMIT 1')
+    time, temp, error, integral, derivative, output = cursor.fetchall()[0]
+    conn.close()
+
+    time = convert_to_local_time(dt.datetime.strptime(time, SQL_TIME_FORMAT))
+
+    return jsonify({'temp': temp})
 
 def make_plot(times, temps, errors, integrals, derivatives, outputs, config):
     img = io.BytesIO()

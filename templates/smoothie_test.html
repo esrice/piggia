@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Smoothie!</title>
+        <script type="text/javascript"
+            src="{{ url_for('static', filename='smoothie.js') }}"></script>
+        <script type="text/javascript"
+            src="{{ url_for('static', filename='gauge.min.js') }}"></script>
+    </head>
+    <body>
+        <span id="gauge-value"></span>
+        <canvas id="gauge_canvas" width="400" heigh="400"></canvas>
+        <canvas id="smoothie_canvas" width="800" height="400"></canvas>
+        <script type="text/javascript"
+                src="{{ url_for('static', filename='temp_chart.js')}}"></script>
+        </script>
+    </body>
+</html>
