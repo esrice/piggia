@@ -29,7 +29,7 @@ pip3 install flask flask-wtf pyyaml
 
 Then, download the code:
 ```
-git clone https://github.com/esrice/piggia.git
+git clone --recursive https://github.com/esrice/piggia.git
 ```
 
 Next, edit `config.yaml` to tell it where to store the database, what pin

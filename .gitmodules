@@ -1,0 +1,6 @@
+[submodule "smoothie"]
+	path = smoothie
+	url = https://github.com/joewalnes/smoothie.git
+[submodule "gauge.js"]
+	path = gauge.js
+	url = https://github.com/bernii/gauge.js.git
