@@ -7,8 +7,8 @@ max_entries: 10000 # max entries in DB
 
 # PID controller gains
 K_p: 4
-K_i: 0.015
-K_d: 200
+K_i: 0.01
+K_d: 0
 
 # maximum integral value to prevent windup
 max_i: 2500
