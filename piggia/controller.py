@@ -6,7 +6,7 @@ import time
 import sys
 import os
 import sqlite3
-from thermometer import Thermometer
+from piggia.thermometer import Thermometer
 
 CREATE_TEMPERATURE_TABLE = """
     CREATE TABLE IF NOT EXISTS temperature (
