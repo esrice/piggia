@@ -12,6 +12,7 @@ setuptools.setup(
         'Flask-WTF',
         'spidev',
         'matplotlib',
+        'RPi.GPIO',
     ],
     python_requires='>=3',
     entry_points={

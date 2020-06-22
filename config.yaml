@@ -16,3 +16,8 @@ max_i: 2500
 # integral cannot accumulate if absolute value of error is
 # greater than this term, in degrees C
 max_error_accumulation: 10
+
+# options for optional seven-segment temperature display
+seven_segment_enabled: True
+seven_segment_spi_bus: 0
+seven_segment_spi_device: 0

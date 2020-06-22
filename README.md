@@ -31,13 +31,14 @@ Fotek SSR-40DA relay controlled by the Pi. Here is a complete circuit diagram:
 ## Installation
 First, install the requirements:
 ```
-sudo apt-get install sqlite3 python3-matplotlib python3-pip git
-pip3 install flask flask-wtf pyyaml
+sudo apt-get install sqlite3 python3-pip git
 ```
 
-Then, download the code:
+Then, download and install piggia:
 ```
 git clone --recursive https://github.com/esrice/piggia.git
+cd piggia
+sudo pip3 install .
 ```
 
 Next, edit `config.yaml` to tell it where to store the database, what pin
@@ -47,8 +48,8 @@ Finally, add the following lines to `/etc/rc.local` to make the temperature
 controller and web server start running automatically when the Raspberry Pi
 starts up:
 ```
-python3 /path/to/controller.py /path/to/config.yaml &
-python3 /path/to/app.py /path/to/config.yaml &
+controller /path/to/config.yaml &
+app /path/to/config.yaml &
 ```
 You can run these in a terminal too, of course. You should now have a little
 webpage showing the current temperature and a plot of past temperatures at

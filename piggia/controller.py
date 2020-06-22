@@ -7,6 +7,7 @@ import sys
 import os
 import sqlite3
 from piggia.thermometer import Thermometer
+from piggia.seven_segment import SevenSegment
 
 CREATE_TEMPERATURE_TABLE = """
     CREATE TABLE IF NOT EXISTS temperature (
@@ -62,7 +63,7 @@ def basic_thermostat(relay_pin, thermometer, set_point, delay_time,
 
 def pid(relay_pin, thermometer, set_point, K_p, K_i, K_d, db_connection,
         db_cursor, max_integral, max_error_accumulation=5,
-        delay_time=1, frequency=1):
+        delay_time=1, frequency=1, seven_segment=None):
     """
     Implements a proportional-integral-derivative
     controller, which intelligently modifies the
@@ -128,6 +129,9 @@ def pid(relay_pin, thermometer, set_point, K_p, K_i, K_d, db_connection,
         previous_error = error
         previous_time = current_time
 
+        if seven_segment is not None:
+            seven_segment.send_float(current_temperature)
+
         time.sleep(delay_time)
 
 def main():
@@ -147,13 +151,20 @@ def main():
     # set up thermometer
     thermometer = Thermometer()
 
+    seven_segment = None
+    if config['seven_segment_enabled']:
+        seven_segment = SevenSegment(
+            config['seven_segment_spi_bus'],
+            config['seven_segment_spi_device'],
+        )
+
     try:
 #        basic_thermostat(config['relay_pin'], thermometer, config['set_point'],
 #            1, connection, cursor)
         pid(config['relay_pin'], thermometer, config['set_point'],
                 config['K_p'], config['K_i'], config['K_d'], connection, cursor,
                 config['max_i'], config['max_error_accumulation'],
-                config['delay_time'])
+                config['delay_time'], seven_segment=seven_segment)
     except KeyboardInterrupt:
         connection.commit()
         connection.close()
